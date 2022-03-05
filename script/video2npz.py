@@ -12,7 +12,6 @@ def get_frames(video_path):
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
-            print('break')
             break
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         frame = cv2.resize(frame, (224, 224))  # [64, 3, 224, 224]
