@@ -1,7 +1,7 @@
 """ video swin transfomer feature extractor """
 
 from mmcv import Config
-from mmaction2.mmaction.models import build_model
+from mmaction.models import build_model
 from mmcv.runner import load_checkpoint
 import torch
 import torch.nn as nn
@@ -10,10 +10,10 @@ import os.path as osp
 
 class VideoSwinTransformer(nn.Module):
 
-    def __init__(self ):
+    def __init__(self):
         super(VideoSwinTransformer, self).__init__()
         
-        self.config= 'mmaction2/configs/recognition/swin/swin_tiny_patch244_window877_kinetics400_1k.py'
+        self.config= 'configs/recognition/swin/swin_tiny_patch244_window877_kinetics400_1k.py'
         self.checkpoint = 'pre-trained/swin_tiny_patch244_window877_kinetics400_1k.pth'
         check_file_exist(self.checkpoint)
         check_file_exist(self.config)
@@ -25,6 +25,7 @@ class VideoSwinTransformer(nn.Module):
         cfg = Config.fromfile(self.config)
         model = build_model(cfg.model, train_cfg=cfg.get('train_cfg'), test_cfg=cfg.get('test_cfg'))
 
+        # alternative
         ### load hyperparameters by mmcv api 
         # load_checkpoint(model, self.checkpoint, map_location='cpu')
         # backbone = model.backbone
@@ -52,6 +53,8 @@ def check_file_exist(filename, msg_tmpl='file "{}" does not exist'):
     if not osp.isfile(filename):
         raise FileNotFoundError(msg_tmpl.format(filename))
 
+# model=VideoSwinTransformer()
+# print(model)
 
 
 
