@@ -1,4 +1,4 @@
-""" video to npz file, no normalization"""
+""" video to npz file"""
 import numpy as np
 import cv2 
 import os
@@ -50,12 +50,16 @@ def get_npz(npz_path):
     return frames
 
 
-video_path='/public/home/huhzh/ShanghaiTech/training/videos'
-save_path='/public/home/huhzh/ShanghaiTech/training/videos_train_npz'
-video2npz()
+# video_path='/public/home/huhzh/ShanghaiTech/training/videos'
+# save_path='/public/home/huhzh/ShanghaiTech/training/videos_train_npz'
+# video2npz()
 
 
 # f=get_npz('/public/home/huhzh/ShanghaiTech/training/videos_train_npz/01_001.npz')
+# print(type(f))
+# print(f.shape)
+
+# f=get_frames('/public/home/huhzh/ShanghaiTech/training/videos/01_001.avi')
 # print(type(f))
 # print(f.shape)
 
