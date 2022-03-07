@@ -14,14 +14,14 @@ from MAE.pos_embed import get_2d_sincos_pos_embed
 
 class MaskedAutoencoder(nn.Module): 
     
-    def __init__(self, img_size=224, patch_size=16, in_chans=3,
-                 embed_dim=768, encoder_depth=4, num_heads=16,
+    def __init__(self, img_size=224, patch_size=16, in_chans=768,
+                 embed_dim=512, encoder_depth=4, num_heads=16,
                  decoder_embed_dim=768, decoder_depth=8, decoder_num_heads=16,
                  mlp_ratio=4., norm_layer=nn.LayerNorm, norm_pix_loss=False):
         super().__init__()
 
-        self.Encoder = TransformerEncoder(d_model=embed_dim,n_head=num_heads,dim_ff=embed_dim,num_layers=encoder_depth,max_len=1024)
-        self.Decoder = TransformerDecoder(d_model=decoder_embed_dim,n_head=decoder_num_heads,dim_ff=decoder_embed_dim,num_layers=decoder_depth,max_len=1024)
+        # self.Encoder = TransformerEncoder(d_model=embed_dim,n_head=num_heads,dim_ff=embed_dim,num_layers=encoder_depth,max_len=1024)
+        # self.Decoder = TransformerDecoder(d_model=decoder_embed_dim,n_head=decoder_num_heads,dim_ff=decoder_embed_dim,num_layers=decoder_depth,max_len=1024)
     
 
 
@@ -32,29 +32,32 @@ class MaskedAutoencoder(nn.Module):
     #     self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
     #     self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, embed_dim), requires_grad=False)  # fixed sin-cos embedding
 
-    #     self.blocks = nn.ModuleList([
-    #         Block(embed_dim, num_heads, mlp_ratio, qkv_bias=True, qk_scale=None, norm_layer=norm_layer)
-    #         for i in range(depth)]) # transformer encoder  
-    #     self.norm = norm_layer(embed_dim)  
-    #     # --------------------------------------------------------------------------
+        self.encoder_embed= nn.Linear(in_chans, embed_dim, bias=True)
+        self.pos_embed=PositionalEncoding(embed_dim)
 
-    #     # --------------------------------------------------------------------------
-    #     # MAE decoder specifics
-    #     self.decoder_embed = nn.Linear(embed_dim, decoder_embed_dim, bias=True)
+        self.encoder_blocks = nn.ModuleList([
+            Block(embed_dim, num_heads, mlp_ratio, qkv_bias=True,norm_layer=norm_layer)
+            for i in range(encoder_depth)]) # transformer encoder  
+        self.norm = norm_layer(embed_dim)  
+        # --------------------------------------------------------------------------
 
-    #     self.mask_token = nn.Parameter(torch.zeros(1, 1, decoder_embed_dim))
+        # --------------------------------------------------------------------------
+        # MAE decoder specifics
+        # self.decoder_embed = nn.Linear(embed_dim, decoder_embed_dim, bias=True)
 
-    #     self.decoder_pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, decoder_embed_dim), requires_grad=False)  # fixed sin-cos embedding
+        # self.mask_token = nn.Parameter(torch.zeros(1, 1, decoder_embed_dim))
 
-    #     self.decoder_blocks = nn.ModuleList([
-    #         Block(decoder_embed_dim, decoder_num_heads, mlp_ratio, qkv_bias=True, qk_scale=None, norm_layer=norm_layer)
-    #         for i in range(decoder_depth)])
+        # self.decoder_pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, decoder_embed_dim), requires_grad=False)  # fixed sin-cos embedding
 
-    #     self.decoder_norm = norm_layer(decoder_embed_dim)
-    #     self.decoder_pred = nn.Linear(decoder_embed_dim, patch_size**2 * in_chans, bias=True) # decoder to patch
-    #     # --------------------------------------------------------------------------
+        # self.decoder_blocks = nn.ModuleList([
+        #     Block(decoder_embed_dim, decoder_num_heads, mlp_ratio, qkv_bias=True, qk_scale=None, norm_layer=norm_layer)
+        #     for i in range(decoder_depth)])
 
-    #     self.norm_pix_loss = norm_pix_loss
+        # self.decoder_norm = norm_layer(decoder_embed_dim)
+        # self.decoder_pred = nn.Linear(decoder_embed_dim, patch_size**2 * in_chans, bias=True) # decoder to patch
+        # # --------------------------------------------------------------------------
+
+        # self.norm_pix_loss = norm_pix_loss
 
     #     self.initialize_weights()
 
@@ -88,11 +91,52 @@ class MaskedAutoencoder(nn.Module):
     #         nn.init.constant_(m.bias, 0)
     #         nn.init.constant_(m.weight, 1.0)
 
-    def forward(self,x):
-        x=self.Encoder(x)
-        x=self.Decoder(x)
+    def random_masking(self, x, mask_ratio):
+        """
+        Perform per-sample random masking by per-sample shuffling.
+        Per-sample shuffling is done by argsort random noise.
+        x: [N, L, D], sequence
+        """
+        N, L, D = x.shape  # batch_size, length, dim
+        len_keep = int(L * (1 - mask_ratio))
+        
+        noise = torch.rand(N, L, device=x.device)  # noise in [0, 1]
+        
+        # sort noise for each sample  
+        # ascend: small is keep, large is remove 
+        ids_shuffle = torch.argsort(noise, dim=1)  #  torch.argsort 返回排序后的索引
+        ids_restore = torch.argsort(ids_shuffle, dim=1)  # 元素按从小达到排序，
+ 
+        # keep the first subset
+        ids_keep = ids_shuffle[:, :len_keep]
+        x_masked = torch.gather(x, dim=1, index=ids_keep.unsqueeze(-1).repeat(1, 1, D))
+
+        # generate the binary mask: 0 is keep, 1 is remove
+        mask = torch.ones([N, L], device=x.device)
+        mask[:, :len_keep] = 0
+        # unshuffle to get the binary mask
+        mask = torch.gather(mask, dim=1, index=ids_restore)  # 收集输入的特定维度指定位置的数值
+
+        return x_masked, mask, ids_restore
+
+    def forward(self,x,mask_ratio=0.75):
+        x, mask, ids_restore=self.forward_encoder(x,mask_ratio)
         print(x.shape)
         return x
+
+
+    def forward_encoder(self, x, mask_ratio):
+        x=self.encoder_embed(x)
+        x=x+self.pos_embed(x)
+
+        # masking: length -> length * mask_ratio
+        x, mask, ids_restore = self.random_masking(x, mask_ratio)
+        for blk in self.encoder_blocks:
+            x = blk(x)
+
+        x = self.norm(x)
+
+        return x, mask, ids_restore
 
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, dropout=0.1, max_len=5000):
@@ -113,93 +157,29 @@ class PositionalEncoding(nn.Module):
         return x
 
 
-class TransformerEncoder(nn.Module):
-    '''standard transformer encoder'''
+class PositionalEmbedding(nn.Module):
 
-    def __init__(self, d_model, n_head, dim_ff, dropout=0.0, num_layers=1, max_len=1024):
+    def __init__(self, d_model, max_len=512):
         super().__init__()
-        self.pos_encoder = PositionalEncoding(d_model, 0.1, max_len)
+        # Compute the positional encodings once in log space.
+        pe = torch.zeros(max_len, d_model).float()
+        pe.require_grad = False
 
-        encoder_layer = nn.TransformerEncoderLayer(d_model=d_model,
-                                                   nhead=n_head,
-                                                   dim_feedforward=dim_ff,
-                                                   dropout=dropout,
-                                                   activation='relu')
-        encoder_norm = nn.LayerNorm(d_model)
-        self.trans_encoder = nn.TransformerEncoder(encoder_layer, num_layers, encoder_norm)
+        position = torch.arange(0, max_len).float().unsqueeze(1)
+        div_term = (torch.arange(0, d_model, 2).float() * -(math.log(10000.0) / d_model)).exp()
 
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
 
-    def forward(self, src):
-        src = self.pos_encoder(src)
-        e_op = self.trans_encoder(src)
-        return e_op
+        pe = pe.unsqueeze(0)
+        self.register_buffer('pe', pe)
 
-class TransformerDecoder(nn.Module):
-    def __init__(self, d_model, n_head, dim_ff, dropout=0.0, num_layers=1, max_len=1024):
-        super().__init__()
-        self.pos_encoder = PositionalEncoding(d_model, 0.1, max_len)
-
-        encoder_layer = nn.TransformerDecoderLayer(d_model=d_model,
-                                                    nhead=n_head,
-                                                    dim_feedforward=dim_ff,
-                                                    dropout=dropout,
-                                                    activation='relu')
-        encoder_norm = nn.LayerNorm(d_model)
-        self.trans_decoder = nn.TransformerDecoder(encoder_layer, num_layers, encoder_norm)
-
-
-    def forward(self, src, memory):
-        pos = self.pos_encoder(src)
-        e_op = self.trans_decoder()
-        return e_op
-
-# class Embedding(nn.Module):
-#     def __init__(self, vocab_size, embed_size, dropout=0.1):
-#         super().__init__()
-#         self.token = TokenEmbedding(vocab_size=vocab_size, embed_size=embed_size)
-#         self.position = PositionalEmbedding(d_model=self.token.embedding_dim)
-#         self.segment = SegmentEmbedding(embed_size=self.token.embedding_dim)
-#         self.dropout = nn.Dropout(p=dropout)
-#         self.embed_size = embed_size
-
-#     def forward(self, sequence, segment_label):
-#         x = self.token(sequence) + self.position(sequence)+ self.segment(segment_label)
-#         return self.dropout(x)
-
-
-# class TokenEmbedding(nn.Embedding):
-#     def __init__(self, vocab_size, embed_size=512):
-#         super().__init__(vocab_size, embed_size, padding_idx=0)
-
-
-# class PositionalEmbedding(nn.Module):
-
-#     def __init__(self, d_model, max_len=512):
-#         super().__init__()
-
-#         # Compute the positional encodings once in log space.
-#         pe = torch.zeros(max_len, d_model).float()
-#         pe.require_grad = False
-
-#         position = torch.arange(0, max_len).float().unsqueeze(1)
-#         div_term = (torch.arange(0, d_model, 2).float() * -(math.log(10000.0) / d_model)).exp()
-
-#         pe[:, 0::2] = torch.sin(position * div_term)
-#         pe[:, 1::2] = torch.cos(position * div_term)
-
-#         pe = pe.unsqueeze(0)
-#         self.register_buffer('pe', pe)
-
-#     def forward(self, x):
-#         return self.pe[:, :x.size(1)]
-
-# class SegmentEmbedding(nn.Embedding):
-#     def __init__(self, embed_size=512):
-#         super().__init__(3, embed_size, padding_idx=0)
+    def forward(self, x):
+        return self.pe[:, :x.size(1)]
 
 #[f,b,512]
-x=torch.rand(1024,1,768)
+x=torch.rand(1,1024,768)
 model=MaskedAutoencoder()
-# print(model)
+print(model)
 x=model(x)
 print(x)
