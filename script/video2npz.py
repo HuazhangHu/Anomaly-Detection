@@ -50,9 +50,9 @@ def get_npz(npz_path):
     return frames
 
 
-# video_path='/public/home/huhzh/ShanghaiTech/training/videos'
-# save_path='/public/home/huhzh/ShanghaiTech/training/videos_train_npz'
-# video2npz()
+video_path='/public/home/huhzh/ShanghaiTech/training/videos'
+save_path='/public/home/huhzh/ShanghaiTech/training/videos_train_npz'
+video2npz()
 
 
 # f=get_npz('/public/home/huhzh/ShanghaiTech/training/videos_train_npz/01_001.npz')
