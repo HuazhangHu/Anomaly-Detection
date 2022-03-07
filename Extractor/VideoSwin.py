@@ -1,5 +1,8 @@
 """ video swin transfomer feature extractor """
 
+import sys
+sys.path.append("..")
+
 from mmcv import Config
 from mmaction.models import build_model
 from mmcv.runner import load_checkpoint
@@ -13,8 +16,8 @@ class VideoSwinTransformer(nn.Module):
     def __init__(self):
         super(VideoSwinTransformer, self).__init__()
         
-        self.config= 'configs/recognition/swin/swin_tiny_patch244_window877_kinetics400_1k.py'
-        self.checkpoint = 'pre-trained/swin_tiny_patch244_window877_kinetics400_1k.pth'
+        self.config= '../configs/recognition/swin/swin_tiny_patch244_window877_kinetics400_1k.py'
+        self.checkpoint = '../pre-trained/swin_tiny_patch244_window877_kinetics400_1k.pth'
         check_file_exist(self.checkpoint)
         check_file_exist(self.config)
         self.backbone = self.load_model()
@@ -56,7 +59,7 @@ def check_file_exist(filename, msg_tmpl='file "{}" does not exist'):
 # model=VideoSwinTransformer()
 # # print(model)
 # x=torch.rand(1,3,64,224,224)
-# x=model(x)
+# x=model(x) # [1,768,32,7,7]  temporal 64->32  channel 768
 # print("videoswin output: ", x.shape)
 
 
