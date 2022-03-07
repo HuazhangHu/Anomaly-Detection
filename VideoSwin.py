@@ -43,9 +43,9 @@ class VideoSwinTransformer(nn.Module):
         return backbone
 
     def forward(self, input):
-        # print("videoswin input: ", input.shape)
+        # input.shape [batch_size, channel, length, h, w]
+        batch_size, c, length, h, w = input.shape
         output = self.backbone(input)
-        # print("videoswin output: ", output.shape)
 
         return output
     
@@ -54,7 +54,10 @@ def check_file_exist(filename, msg_tmpl='file "{}" does not exist'):
         raise FileNotFoundError(msg_tmpl.format(filename))
 
 # model=VideoSwinTransformer()
-# print(model)
+# # print(model)
+# x=torch.rand(1,3,64,224,224)
+# x=model(x)
+# print("videoswin output: ", x.shape)
 
 
 

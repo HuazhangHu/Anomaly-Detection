@@ -1,3 +1,4 @@
 # Anomaly-Detection
 ## baseline
-* I3D视频抽帧（32压1？) masked auto-encoder pretrain model  
+* For normal video dataset, cliping these videos to a mount of snips(64 frames per snip), Extracting feature by I3D or Video-SWin Transformer feature extractor.
+* Training masked auto-encoder model using feature sequence. 
