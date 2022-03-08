@@ -25,7 +25,7 @@ def get_frames(video_path):
 def save_npz(frames,file_name):
     if isinstance(frames,np.ndarray):
         savename=os.path.join(save_path,file_name.split('.')[0]+'.npz')
-        np.savez(savename,frames=frames)
+        np.savez(savename,frames=frames) #data [frames,224,224,3]
 
 
 def video2npz():
@@ -34,7 +34,7 @@ def video2npz():
         # print(video)
         # check_file_exist(video)
         frames=get_frames(os.path.join(video_path,video))
-        print(frames.shape)
+        # print(frames.shape)
         save_npz(frames,video)
     print('over!')
 
@@ -50,9 +50,9 @@ def get_npz(npz_path):
     return frames
 
 
-video_path='/public/home/huhzh/ShanghaiTech/training/videos'
-save_path='/public/home/huhzh/ShanghaiTech/training/videos_train_npz'
-video2npz()
+# video_path='/public/home/huhzh/ShanghaiTech/training/videos'
+# save_path='/public/home/huhzh/ShanghaiTech/training/videos_train_npz'
+# video2npz()
 
 
 # f=get_npz('/public/home/huhzh/ShanghaiTech/training/videos_train_npz/01_001.npz')
