@@ -10,7 +10,7 @@ from timm.models.vision_transformer import Block
 
 class MaskedAutoencoder(nn.Module): 
     
-    def __init__(self, in_chans=768,embed_dim=1024, encoder_depth=4, num_heads=8,
+    def __init__(self, in_chans=1024,embed_dim=1024, encoder_depth=4, num_heads=8,
                  decoder_embed_dim=512, decoder_depth=4, decoder_num_heads=8,
                  mlp_ratio=4., norm_layer=nn.LayerNorm, norm_pix_loss=False):
         super().__init__()

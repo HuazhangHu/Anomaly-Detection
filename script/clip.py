@@ -15,7 +15,7 @@ def read_npz(file):
         frames -=127.5
         frames /= 127.5 
         # dtype(float64)
-    return frames
+        return frames
 
 
 def save_clip(clip,file_name,index):
@@ -61,5 +61,5 @@ def video2clip():
 
 snip_len=16
 video_path='/public/home/huhzh/ShanghaiTech/training/videos_train_npz'
-save_path='/public/home/huhzh/ShanghaiTech/training/clips'
+save_path='/public/home/huhzh/ShanghaiTech/training/clips_'+str(snip_len)
 video2clip()
