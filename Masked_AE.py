@@ -8,9 +8,10 @@ import torch.nn as nn
 import math
 from timm.models.vision_transformer import Block
 
+
 class MaskedAutoencoder(nn.Module): 
     
-    def __init__(self, in_chans=1024,embed_dim=1024, encoder_depth=4, num_heads=8,
+    def __init__(self, in_chans=1024, embed_dim=1024, encoder_depth=4, num_heads=8,
                  decoder_embed_dim=512, decoder_depth=4, decoder_num_heads=8,
                  mlp_ratio=4., norm_layer=nn.LayerNorm, norm_pix_loss=False):
         super().__init__()
@@ -93,7 +94,7 @@ class MaskedAutoencoder(nn.Module):
 
         return x_masked, mask, ids_restore
 
-    def forward(self,x,mask_ratio=0.75):
+    def forward(self,x,mask_ratio=0.25):
         ''' 
         x : input feature [batch_size, length, dim]
         '''
@@ -103,7 +104,7 @@ class MaskedAutoencoder(nn.Module):
         pred = self.forward_decoder(latent, ids_restore)  # [N, L, f_size*f_size*channel]
         loss =self.forward_loss(x,pred,mask)
         # print("decoder size:",x.shape)
-        return pred,loss,mask
+        return pred, loss, mask
 
 
     def forward_encoder(self, x, mask_ratio):
@@ -159,6 +160,7 @@ class MaskedAutoencoder(nn.Module):
         loss = loss.mean(dim=-1)  # [N, L], mean loss per frame
 
         loss = (loss * mask).sum() / mask.sum()  # mean loss on removed patches 只计算masked loss
+
         return loss
 
 
@@ -183,8 +185,9 @@ class PositionalEncoding(nn.Module):
 
 
 # #[b,f,dim]
-# x=torch.rand(1,1024,768)
-# model=MaskedAutoencoder()
+# x=torch.rand(4, 8, 768)
+# model=MaskedAutoencoder(in_chans=768)
 # # print(model)
-# x=model(x)
-# # print(x.shape)
+# pred, loss, mask=model(x)
+# print('pred ',pred.shape)
+# print('loss', loss)
