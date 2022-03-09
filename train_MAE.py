@@ -1,6 +1,7 @@
 ''' train '''
 
 import os
+from tkinter import S
 import numpy as np
 from sympy import N
 from tqdm import tqdm
@@ -11,6 +12,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torch.cuda.amp import autocast, GradScaler
 
+from torch.utils.data.distributed import DistributedSampler
 
 import timm
 import timm.optim.optim_factory as optim_factory
@@ -34,20 +36,31 @@ def train_looping(n_epochs, model, train_set, batch_size=4, lr=1e-4, weight_deca
         log_writer = None
 
     # gpu environment seeting 
+    torch.distributed.init_process_group(backend="nccl")
 
+    num_tasks=torch.distributed.get_world_size()
+    local_rank = torch.distributed.get_rank()
+    torch.cuda.set_device(local_rank)
+    device = torch.device("cuda", local_rank)
 
-    trainloader = DataLoader(train_set, batch_size=batch_size, pin_memory=False, shuffle=True, num_workers=8)
-    model = nn.DataParallel(model.cuda())
+    sampler=DistributedSampler(train_set,num_replicas=num_tasks,rank=local_rank,shuffle=True)
+    trainloader = DataLoader(train_set, batch_size=batch_size, pin_memory=False, num_workers=8, sampler=sampler)
+
+    model.to(device)
+    model=nn.parallel.DistributedDataParallel(model,device_ids=[local_rank],output_device=local_rank)
+    # model = nn.DataParallel(model.cuda())
+
     param_groups = optim_factory.add_weight_decay(model , weight_decay=weight_decay)
     optimizer = torch.optim.AdamW(param_groups, lr=lr, betas=(0.9, 0.95))
 
     currEpoch = 0
 
+    # # # load hyperparameters by pytorch
     if lastckpt is not None: 
         print("loading checkpoint")
         checkpoint = torch.load(lastckpt)
         currEpoch = checkpoint['epoch']
-        # # # load hyperparameters by pytorch
+
         # # # if change model
         # net_dict=model.state_dict()
         # state_dict={k: v for k, v in checkpoint.items() if k in net_dict.keys()}
@@ -60,25 +73,23 @@ def train_looping(n_epochs, model, train_set, batch_size=4, lr=1e-4, weight_deca
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
         del checkpoint
-    print("actual lr: %.2e" % lr)
+    
     for state in optimizer.state.values():
         for k, v in state.items():
             if isinstance(v, torch.Tensor):
-                state[k] = v.cuda()
+                state[k] = v.to(device)
 
     scaler = GradScaler()
 
     for epoch in tqdm(range(currEpoch, n_epochs + currEpoch)):
+        sampler.set_epoch(epoch)
         pbar = tqdm(trainloader, total=len(trainloader))
         for input in pbar:
             with autocast():
                 model.train()
-                model.cuda()
                 optimizer.zero_grad()
-                input = input.cuda()
-                print(input.device)
+                input = input.to(device)
                 loss, pred, mask = model(input)
-                loss=torch.mean(loss,dim=0)
                 loss_value = loss.item()
                 pbar.set_postfix({'Epoch': epoch,'loss_train': loss_value})
                 
@@ -88,17 +99,13 @@ def train_looping(n_epochs, model, train_set, batch_size=4, lr=1e-4, weight_deca
             scaler.update()
 
 
-N_GPU = 4
-device_ids = [i for i in range(N_GPU)]
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 
 
 train_path = '/public/home/huhzh/ShanghaiTech/training/feature_videoswin_16'
 
 EPOCHS=4
-
 batch_size=16
 lr=1e-6
 train_set = FeatData(train_path)
 model=Network()
-train_looping(EPOCHS, model, train_set, batch_size, lr, device_ids=device_ids)
+train_looping(EPOCHS, model, train_set, batch_size, lr)
