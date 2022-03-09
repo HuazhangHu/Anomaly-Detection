@@ -39,10 +39,10 @@ def get_feat(file_path):
         print('shape error')
     
 
-train_path = '/public/home/huhzh/ShanghaiTech/training/feature_videoswin_16'
-batch_size=1
-train_set = FeatData(train_path)
-trainloader = DataLoader(train_set, batch_size=batch_size, pin_memory=False, shuffle=True, num_workers=0)
-for input in tqdm(trainloader, total=len(trainloader)):
-    print('input shape',input.shape) 
+# train_path = '/public/home/huhzh/ShanghaiTech/training/feature_videoswin_16'
+# batch_size=4
+# train_set = FeatData(train_path)
+# trainloader = DataLoader(train_set, batch_size=batch_size, pin_memory=False, shuffle=True, num_workers=8)
+# for input in tqdm(trainloader, total=len(trainloader)):
+#     print('input shape',input.shape) 
 

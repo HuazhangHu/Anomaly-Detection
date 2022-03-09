@@ -104,7 +104,7 @@ class MaskedAutoencoder(nn.Module):
         pred = self.forward_decoder(latent, ids_restore)  # [N, L, f_size*f_size*channel]
         loss =self.forward_loss(x,pred,mask)
         # print("decoder size:",x.shape)
-        return pred, loss, mask
+        return loss, pred, mask
 
 
     def forward_encoder(self, x, mask_ratio):
@@ -183,11 +183,31 @@ class PositionalEncoding(nn.Module):
         x = self.dropout(x)
         return x
 
+class Network(nn.Module):
+    '''封装整个网络'''
+    def __init__(self):
+        super().__init__()
+        self.in_chans=1024
+
+        self.embed_dim=1024
+
+        self.average_pooling= nn.AvgPool3d(kernel_size=(1,7,7))
+        self.mae = MaskedAutoencoder(in_chans=self.in_chans, embed_dim=self.embed_dim)
+
+
+    def forward(self,x):
+        x = self.average_pooling(x) # -> [b, len, dim ,1 , 1]
+        x = x.squeeze(-1).squeeze(-1)  # -> [b, len, dim]
+        loss, pred, mask = self.mae(x)  
+        # print('mae ',x.shape)
+
+        return loss, pred, mask
+
 
 # #[b,f,dim]
 # x=torch.rand(4, 8, 768)
 # model=MaskedAutoencoder(in_chans=768)
 # # print(model)
-# pred, loss, mask=model(x)
+# loss, pred, mask=model(x)
 # print('pred ',pred.shape)
 # print('loss', loss)
