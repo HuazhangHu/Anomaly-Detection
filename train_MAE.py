@@ -11,7 +11,7 @@ from torch.utils.tensorboard import SummaryWriter
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torch.cuda.amp import autocast, GradScaler
-
+import torch.distributed as dist
 from torch.utils.data.distributed import DistributedSampler
 
 import timm
@@ -21,7 +21,7 @@ from Masked_AE import MaskedAutoencoder, Network
 from dataloader import FeatData
 
 
-def train_looping(n_epochs, model, train_set, batch_size=4, lr=1e-4, weight_decay=0.05, lastckpt=None, device_ids =[0], log_dir=None):
+def train_looping(n_epochs, model, train_set, batch_size=4, lr=1e-4, weight_decay=0.05, lastckpt=None, save=None, log_dir=None):
 
     # fix the seed for reproducibility
     seed = 0
@@ -30,29 +30,29 @@ def train_looping(n_epochs, model, train_set, batch_size=4, lr=1e-4, weight_deca
 
     if log_dir is not None:
         os.makedirs(os.path.join('log', log_dir), exist_ok=True)
-        print('log dir : ',os.path.join('log', log_dir))
-        log_writer = SummaryWriter(log_dir=log_dir)
+        # print('log dir : ',os.path.join('log', log_dir))
+        log_writer = SummaryWriter(log_dir=os.path.join('log', log_dir))
     else:
         log_writer = None
 
-    # gpu environment seeting 
+    ## ------ gpu environment seeting ------
     torch.distributed.init_process_group(backend="nccl")
-
     num_tasks=torch.distributed.get_world_size()
     local_rank = torch.distributed.get_rank()
     torch.cuda.set_device(local_rank)
     device = torch.device("cuda", local_rank)
-
     sampler=DistributedSampler(train_set,num_replicas=num_tasks,rank=local_rank,shuffle=True)
     trainloader = DataLoader(train_set, batch_size=batch_size, pin_memory=False, num_workers=8, sampler=sampler)
-
     model.to(device)
     model=nn.parallel.DistributedDataParallel(model,device_ids=[local_rank],output_device=local_rank)
-    # model = nn.DataParallel(model.cuda())
 
+
+    ## ------ optimizer settings  -------
     param_groups = optim_factory.add_weight_decay(model , weight_decay=weight_decay)
     optimizer = torch.optim.AdamW(param_groups, lr=lr, betas=(0.9, 0.95))
 
+    milestones = [i for i in range(0, n_epochs, 40)]
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=milestones, gamma=0.8)  # three step decay
     currEpoch = 0
 
     # # # load hyperparameters by pytorch
@@ -81,31 +81,47 @@ def train_looping(n_epochs, model, train_set, batch_size=4, lr=1e-4, weight_deca
 
     scaler = GradScaler()
 
+
     for epoch in tqdm(range(currEpoch, n_epochs + currEpoch)):
         sampler.set_epoch(epoch)
         pbar = tqdm(trainloader, total=len(trainloader))
+        Losses=[]
         for input in pbar:
             with autocast():
                 model.train()
                 optimizer.zero_grad()
                 input = input.to(device)
                 loss, pred, mask = model(input)
-                loss_value = loss.item()
-                pbar.set_postfix({'Epoch': epoch,'loss_train': loss_value})
-                
+                dist.reduce(loss,0)
+                if torch.distributed.get_rank()==0:
+                    loss_value=loss.item()/num_tasks
+                    Losses.append(loss_value)
+                    pbar.set_postfix({'Epoch': epoch,'loss_train': loss_value})
                 
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
 
+        scheduler.step()
+        if save:
+            if not os.path.exists('checkpoint/{0}'.format(save)):
+                os.makedirs('checkpoint/{0}'.format(save))
+            if (epoch < 50 and epoch % 5 == 0) or (epoch > 50 and epoch % 3 == 0):
+                    checkpoint = {
+                        'epoch': epoch,
+                        'state_dict': model.state_dict(),
+                        'optimizer_state_dict': optimizer.state_dict()
+                    }
+                    if torch.distributed.get_rank()==0:
+                        torch.save(checkpoint,os.path.join('checkpoint',save,str(epoch)+'_{0}.pt'.format(round(np.mean(Losses),4))))
 
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 
 train_path = '/public/home/huhzh/ShanghaiTech/training/feature_videoswin_16'
-
-EPOCHS=4
-batch_size=16
+EPOCHS=200
+batch_size=64
 lr=1e-6
 train_set = FeatData(train_path)
 model=Network()
-train_looping(EPOCHS, model, train_set, batch_size, lr)
+train_looping(EPOCHS, model, train_set, batch_size, lr,save='0309',log_dir='0309')
