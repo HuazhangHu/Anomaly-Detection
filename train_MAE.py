@@ -17,11 +17,11 @@ from torch.utils.data.distributed import DistributedSampler
 import timm
 import timm.optim.optim_factory as optim_factory
 
+from sklearn.model_selection import KFold
 from Masked_AE import MaskedAutoencoder, Network
 from dataloader import FeatData
 
-
-def train_looping(n_epochs, model, train_set, batch_size=4, lr=1e-4, weight_decay=0.05, lastckpt=None, save=None, log_dir=None):
+def train_looping(n_epochs, model, dataset, TTR=0.9, batch_size=4, lr=1e-4, weight_decay=0.05, valid=True, lastckpt=None, save=None, log_dir=None):
 
     # fix the seed for reproducibility
     seed = 0
@@ -41,11 +41,16 @@ def train_looping(n_epochs, model, train_set, batch_size=4, lr=1e-4, weight_deca
     local_rank = torch.distributed.get_rank()
     torch.cuda.set_device(local_rank)
     device = torch.device("cuda", local_rank)
-    sampler=DistributedSampler(train_set,num_replicas=num_tasks,rank=local_rank,shuffle=True)
-    trainloader = DataLoader(train_set, batch_size=batch_size, pin_memory=False, num_workers=8, sampler=sampler)
     model.to(device)
     model=nn.parallel.DistributedDataParallel(model,device_ids=[local_rank],output_device=local_rank)
 
+    ## ------ dataloader settings ------
+    train_set = torch.utils.data.Subset(dataset, range(0, int(TTR * len(dataset))))
+    valid_set = torch.utils.data.Subset(dataset, range(int(TTR*len(dataset)), len(dataset)))
+    sampler_train=DistributedSampler(train_set,num_replicas=num_tasks,rank=local_rank,shuffle=True)
+    sampler_valid=DistributedSampler(valid_set,num_replicas=num_tasks,rank=local_rank,shuffle=True)
+    trainloader = DataLoader(train_set, batch_size=batch_size, pin_memory=False, num_workers=8, sampler=sampler_train)
+    validloader = DataLoader(valid_set, batch_size=batch_size, pin_memory=False, num_workers=8, sampler=sampler_valid)
 
     ## ------ optimizer settings  -------
     param_groups = optim_factory.add_weight_decay(model , weight_decay=weight_decay)
@@ -57,7 +62,7 @@ def train_looping(n_epochs, model, train_set, batch_size=4, lr=1e-4, weight_deca
 
     # # # load hyperparameters by pytorch
     if lastckpt is not None: 
-        print("loading checkpoint")
+        # print("loading checkpoint")
         checkpoint = torch.load(lastckpt)
         currEpoch = checkpoint['epoch']
 
@@ -70,7 +75,7 @@ def train_looping(n_epochs, model, train_set, batch_size=4, lr=1e-4, weight_deca
         # # # or don't change model
         model.load_state_dict(checkpoint['state_dict'], strict=False)
 
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        # optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
         del checkpoint
     
@@ -83,9 +88,9 @@ def train_looping(n_epochs, model, train_set, batch_size=4, lr=1e-4, weight_deca
 
 
     for epoch in tqdm(range(currEpoch, n_epochs + currEpoch)):
-        sampler.set_epoch(epoch)
+        sampler_train.set_epoch(epoch)
         pbar = tqdm(trainloader, total=len(trainloader))
-        Losses=[]
+        Trainlosses=[]
         for input in pbar:
             with autocast():
                 model.train()
@@ -95,12 +100,29 @@ def train_looping(n_epochs, model, train_set, batch_size=4, lr=1e-4, weight_deca
                 dist.reduce(loss,0)
                 if torch.distributed.get_rank()==0:
                     loss_value=loss.item()/num_tasks
-                    Losses.append(loss_value)
+                    Trainlosses.append(loss_value)
                     pbar.set_postfix({'Epoch': epoch,'loss_train': loss_value})
                 
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
+
+
+        if valid:
+            sampler_valid.set_epoch(epoch)
+            Validlosses=[]
+            pbar = tqdm(validloader, total=len(validloader))
+            with torch.no_grad():
+                for input in pbar:
+                    model.eval()
+                    input = input.to(device)
+                    loss, pred, mask = model(input)
+                    dist.reduce(loss,0)
+                    if torch.distributed.get_rank()==0:
+                        loss_value=loss.item()/num_tasks
+                        Validlosses.append(loss_value)
+                        pbar.set_postfix({'Epoch': epoch,'loss_valid': loss_value})
+
 
         scheduler.step()
         if save:
@@ -113,7 +135,12 @@ def train_looping(n_epochs, model, train_set, batch_size=4, lr=1e-4, weight_deca
                         'optimizer_state_dict': optimizer.state_dict()
                     }
                     if torch.distributed.get_rank()==0:
-                        torch.save(checkpoint,os.path.join('checkpoint',save,str(epoch)+'_{0}.pt'.format(round(np.mean(Losses),4))))
+                        torch.save(checkpoint,os.path.join('checkpoint',save,str(epoch)+'_{0}.pt'.format(round(np.mean(Validlosses),4))))
+        if torch.distributed.get_rank()==0:
+            log_writer.add_scalars('epoch_loss', {"epoch_trainloss": np.mean(Trainlosses),"epoch_vlidloss": np.mean(Validlosses)}, epoch)
+            log_writer.add_scalars('epoch_lr', {"lr": optimizer.state_dict()['param_groups'][0]['lr']}, epoch)
+
+            
 
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
@@ -121,7 +148,9 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 train_path = '/public/home/huhzh/ShanghaiTech/training/feature_videoswin_16'
 EPOCHS=200
 batch_size=64
-lr=1e-6
-train_set = FeatData(train_path)
+lr=1e-5
+lastckpt='checkpoint/0309/66_0.1151.pt'
+dataset = FeatData(train_path)
+
 model=Network()
-train_looping(EPOCHS, model, train_set, batch_size, lr,save='0309',log_dir='0309')
+train_looping(EPOCHS, model, dataset=dataset, batch_size=batch_size, lr=lr, save='0309',log_dir='0309', lastckpt=lastckpt)
