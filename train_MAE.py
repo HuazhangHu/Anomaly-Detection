@@ -147,9 +147,9 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 
 train_path = '/public/home/huhzh/ShanghaiTech/training/feature_videoswin_16'
 EPOCHS=200
-batch_size=128
-lr=8e-5
-lastckpt='checkpoint/0309/183_0.0139.pt'
+batch_size=64
+lr=1e-4
+lastckpt='checkpoint/0309/267_0.0054.pt'
 dataset = FeatData(train_path)
 
 model=Network()
