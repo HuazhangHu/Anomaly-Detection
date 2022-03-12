@@ -126,8 +126,9 @@ def train_looping(n_epochs, model, dataset, TTR=0.9, batch_size=4, lr=1e-4, weig
 
         scheduler.step()
         if save:
-            if not os.path.exists('checkpoint/{0}'.format(save)):
-                os.makedirs('checkpoint/{0}'.format(save))
+            savepath='/storage/data/huhzh/Anomaly-Detection/checkpoint/'
+            if not os.path.exists(savepath+save):
+                os.makedirs(savepath+save)
             if (epoch < 50 and epoch % 5 == 0) or (epoch > 50 and epoch % 3 == 0):
                     checkpoint = {
                         'epoch': epoch,
@@ -135,7 +136,7 @@ def train_looping(n_epochs, model, dataset, TTR=0.9, batch_size=4, lr=1e-4, weig
                         'optimizer_state_dict': optimizer.state_dict()
                     }
                     if torch.distributed.get_rank()==0:
-                        torch.save(checkpoint,os.path.join('checkpoint',save,str(epoch)+'_{0}.pt'.format(round(np.mean(Validlosses),4))))
+                        torch.save(checkpoint,os.path.join(savepath,save,str(epoch)+'_{0}.pt'.format(round(np.mean(Validlosses),4))))
         if torch.distributed.get_rank()==0:
             log_writer.add_scalars('epoch_loss', {"epoch_trainloss": np.mean(Trainlosses),"epoch_vlidloss": np.mean(Validlosses)}, epoch)
             log_writer.add_scalars('epoch_lr', {"lr": optimizer.state_dict()['param_groups'][0]['lr']}, epoch)
@@ -145,12 +146,12 @@ def train_looping(n_epochs, model, dataset, TTR=0.9, batch_size=4, lr=1e-4, weig
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 
-train_path = '/public/home/huhzh/ShanghaiTech/training/feature_videoswin_16'
+train_path = '/storage/data/huhzh/ShanghaiTech/training/new_feature_videoswin_16'
 EPOCHS=200
 batch_size=64
 lr=1e-4
-lastckpt='checkpoint/0309/267_0.0054.pt'
+lastckpt=None
 dataset = FeatData(train_path)
 
 model=Network()
-train_looping(EPOCHS, model, dataset=dataset, batch_size=batch_size, lr=lr, save='0309',log_dir='0309', lastckpt=lastckpt)
+train_looping(EPOCHS, model, dataset=dataset, batch_size=batch_size, lr=lr, save='0310',log_dir='0310', lastckpt=lastckpt)
