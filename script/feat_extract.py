@@ -38,10 +38,9 @@ def get_frames(file_path):
     with np.load(file_path, allow_pickle=True) as data:
         frames = data['frames']  # numpy.ndarray [f, 224, 224, 3]
         frames_length = frames.shape[0]
+        #!!!!!!!!!! 加回来 TODO: 由于clip的时候已经归一化了一次，此时不需要归一化了
         frames = torch.FloatTensor(frames)
         frames = frames.permute(0, 3, 1, 2)  # tensor [f, 224, 224, 3]->[f, 3, 224, 224]
-        frames -=127.5
-        frames /= 127.5 
         
         # dtype(float64)
         return frames
@@ -57,8 +56,8 @@ device_ids = [i for i in range(N_GPU)]
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 device = torch.device("cuda:" + str(device_ids[0]) if torch.cuda.is_available() else "cpu")
 
-train_path = '/public/home/huhzh/ShanghaiTech/training/clips_16'
-save_path='/public/home/huhzh/ShanghaiTech/training/feature_videoswin_16'
+train_path = '/storage/data/huhzh/ShanghaiTech/training/clips_16'
+save_path='/storage/data/huhzh/ShanghaiTech/training/new_feature_videoswin_16'
 batch_size=4
 train_set = MyData(train_path)
 trainloader = DataLoader(train_set, batch_size=batch_size, pin_memory=False, shuffle=True, num_workers=8)

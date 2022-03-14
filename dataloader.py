@@ -31,12 +31,13 @@ class FeatData(Dataset):
 def get_feat(file_path):
     feat=torch.load(file_path)
     feat=torch.autograd.Variable(feat,requires_grad = False)   #  这个tensor是由别的模型提取的，要把梯度关掉
-    # print('feature shape', feat.shape) # torch.Size([1, 1024, 8, 7, 7])
-    if feat.shape[0] == 1:
-        feat = feat.squeeze(0) # -> torch.Size([1024, 8, 7, 7])
-        return feat
-    else:
-        print('shape error')
+    # print('feature shape', feat.shape) # torch.Size([1024, 8, 7, 7])
+    return feat
+    # if feat.shape[0] == 1:
+    #     feat = feat.squeeze(0) # -> torch.Size([1024, 8, 7, 7])
+    #     return feat
+    # else:
+    #     print('shape error')
     
 
 # train_path = '/public/home/huhzh/ShanghaiTech/training/feature_videoswin_16'
