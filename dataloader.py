@@ -18,8 +18,8 @@ class FeatData(Dataset):
     def __getitem__(self, index):
         file_name = self.feat_list[index]
         feat_file_path = os.path.join(self.feat_path,file_name)
-        feat = get_feat(feat_file_path)  # torch.Size([1024, 8, 7, 7])
-        feat = feat.transpose(0, 1)  # torch.Size([1024, 8, 7, 7]) -> [8, 1024, 7, 7]
+        feat = get_feat(feat_file_path)  # torch.Size([1024, 8])
+        feat = feat.transpose(0, 1)  # torch.Size([1024, 8]) -> [8, 1024]
 
         return feat
 
@@ -31,13 +31,8 @@ class FeatData(Dataset):
 def get_feat(file_path):
     feat=torch.load(file_path)
     feat=torch.autograd.Variable(feat,requires_grad = False)   #  这个tensor是由别的模型提取的，要把梯度关掉
-    # print('feature shape', feat.shape) # torch.Size([1024, 8, 7, 7])
+    # print('feature shape', feat.shape) # torch.Size([1024, 8)
     return feat
-    # if feat.shape[0] == 1:
-    #     feat = feat.squeeze(0) # -> torch.Size([1024, 8, 7, 7])
-    #     return feat
-    # else:
-    #     print('shape error')
     
 
 # train_path = '/public/home/huhzh/ShanghaiTech/training/feature_videoswin_16'

@@ -1,5 +1,6 @@
 """ video swin transfomer feature extractor """
 
+from re import X
 import sys
 sys.path.append("..")
 
@@ -22,6 +23,7 @@ class VideoSwinTransformer(nn.Module):
         check_file_exist(self.checkpoint)
         check_file_exist(self.config)
         self.backbone = self.load_model()
+        self.average_pooling= nn.AvgPool3d(kernel_size=(1,7,7))
         
 
     def load_model(self):
@@ -49,7 +51,9 @@ class VideoSwinTransformer(nn.Module):
     def forward(self, input):
         # input.shape [batch_size, channel, length, h, w]
         batch_size, c, length, h, w = input.shape
-        output = self.backbone(input)
+        x = self.backbone(input)
+        x=self.average_pooling(x)#  [batch_size, channel, length,1,1]
+        output=x.squeeze(-1).squeeze(-1) #  [batch_size, channel, length]
 
         return output
     

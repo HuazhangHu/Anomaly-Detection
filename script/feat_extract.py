@@ -56,8 +56,8 @@ device_ids = [i for i in range(N_GPU)]
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 device = torch.device("cuda:" + str(device_ids[0]) if torch.cuda.is_available() else "cpu")
 
-train_path = '/storage/data/huhzh/ShanghaiTech/training/clips_16'
-save_path='/storage/data/huhzh/ShanghaiTech/training/new_feature_videoswin_16'
+train_path = '/storage/data/huhzh/ShanghaiTech/testing/clips_16'
+save_path='/storage/data/huhzh/ShanghaiTech/testing/feature_videoswin_16'
 batch_size=4
 train_set = MyData(train_path)
 trainloader = DataLoader(train_set, batch_size=batch_size, pin_memory=False, shuffle=True, num_workers=8)
@@ -74,7 +74,7 @@ for input,filenames in tqdm(trainloader, total=len(trainloader)):
     # print('filename ', filenames)
     features = torch.chunk(features, batch_size, dim=0)
     for i in range(len(features)):
-        save_feat(features[i].squeeze(0), filenames[i], save_path)  # -> torch.Size([1024, 8, 7, 7])
+        save_feat(features[i].squeeze(0), filenames[i], save_path)  # -> torch.Size([1024, 8])
 
 
 

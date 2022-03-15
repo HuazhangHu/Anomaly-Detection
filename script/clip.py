@@ -69,6 +69,6 @@ def video2clip():
         
 
 snip_len=16
-video_path='/storage/data/huhzh/ShanghaiTech/training/videos_train_npz'
-save_path='/storage/data/huhzh/ShanghaiTech/training/new_clips_'+str(snip_len)
+video_path='/storage/data/huhzh/ShanghaiTech/testing/videos'
+save_path='/storage/data/huhzh/ShanghaiTech/testing/clips_'+str(snip_len)
 video2clip()

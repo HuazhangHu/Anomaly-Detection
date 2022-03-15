@@ -94,7 +94,7 @@ class MaskedAutoencoder(nn.Module):
 
         return x_masked, mask, ids_restore
 
-    def forward(self,x,mask_ratio=0.25):
+    def forward(self,x,mask_ratio=0.125):
         ''' 
         x : input feature [batch_size, length, dim]
         '''
@@ -182,26 +182,6 @@ class PositionalEncoding(nn.Module):
         x = x + self.pe[:x.size(0), :]
         x = self.dropout(x)
         return x
-
-class Network(nn.Module):
-    '''封装整个网络'''
-    def __init__(self):
-        super().__init__()
-        self.in_chans=1024
-
-        self.embed_dim=1024
-
-        self.average_pooling= nn.AvgPool3d(kernel_size=(1,7,7))
-        self.mae = MaskedAutoencoder(in_chans=self.in_chans, embed_dim=self.embed_dim)
-
-
-    def forward(self,x):
-        x = self.average_pooling(x) # -> [b, len, dim ,1 , 1]
-        x = x.squeeze(-1).squeeze(-1)  # -> [b, len, dim]
-        loss, pred, mask = self.mae(x)  
-        # print('mae ',x.shape)
-
-        return loss, pred, mask
 
 
 # #[b,f,dim]
