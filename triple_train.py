@@ -22,7 +22,7 @@ from utils.loss import l1_loss, psnr_error
 
 
 
-def train_step1(n_epochs, TTR=0.95, batch_size=4, lr=1e-6, weight_decay=0.05, valid=True, lastckpt=None, save=None, log_dir=None):
+def train_step1(n_epochs, TTR=0.9, batch_size=4, lr=1e-6, weight_decay=0.05, valid=True, lastckpt=None, save=None, log_dir=None):
 
     # fix the seed for reproducibility
     seed = 0
@@ -114,7 +114,11 @@ def train_step1(n_epochs, TTR=0.95, batch_size=4, lr=1e-6, weight_decay=0.05, va
                     negative = negative.to(device)
                     pred_anchor, mask_anchor = model(anchor)
                     pred_negative, mask_negatve = model(negative)
-                    loss=l1_loss(pred_anchor,anchor,mask_anchor)+ psnr_error(pred_negative,negative,mask_negatve)*l1_loss(pred_negative,negative,mask_negatve)        
+                    if Step1:
+                        score=1        
+                        psnr=psnr_error(pred_negative,negative,mask_negatve)
+                        PSNR.append(psnr)
+                    loss=l1_loss(pred_anchor,anchor,mask_anchor)+ score *l1_loss(pred_negative,negative,mask_negatve)        
 
                     loss_value=loss.item()
                     Validlosses.append(loss_value)
@@ -140,15 +144,14 @@ def train_step1(n_epochs, TTR=0.95, batch_size=4, lr=1e-6, weight_decay=0.05, va
                         'optimizer_state_dict': optimizer.state_dict(),
                         'PSNR':PSNR
                     }
-                    if torch.distributed.get_rank()==0:
-                        torch.save(checkpoint,os.path.join(savepath,save,str(epoch)+'_{0}.pt'.format(round(np.mean(Validlosses),4))))
+                    torch.save(checkpoint,os.path.join(savepath,save,str(epoch)+'_{0}.pt'.format(round(np.mean(Validlosses),4))))
 
 N_GPU =4
 device_ids = [i for i in range(N_GPU)]
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 data_path='/storage/data/huhzh/ShanghaiTech/training/feature_videoswin_16'
 ckpt=None
-LR=1e-5
+LR=8e-6
 batch_size=64
 
 train_step1(100,lr=LR,batch_size=batch_size,lastckpt=ckpt,save='0315_step1',log_dir='0315_step1')
