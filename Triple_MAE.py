@@ -169,13 +169,3 @@ class PositionalEncoding(nn.Module):
         x = self.dropout(x)
         return x
 
-from utils.loss import l1_loss, psnr_error
-
-model=MaskedAutoencoder()
-anchor=torch.rand([1,8,1024])
-negative=torch.rand([1,8,1024])
-pred_anchor, mask_anchor = model(anchor)
-pred_negative, mask_negatve = model(negative)
-loss=l1_loss(pred_anchor,anchor,mask_anchor)+ psnr_error(pred_negative,negative,mask_negatve)*l1_loss(pred_negative,negative,mask_negatve)   
-print(loss)
-loss.backward()     

@@ -59,7 +59,7 @@ def load_feat(file_path):
 # print(' valid ',len(validloader))
 
 # for input in tqdm(trainloader, total=len(trainloader)):
-#     print('input shape',input.shape) 
+#     print('input shape',input[:,0,:,:].shape) 
 #     break
 
 
