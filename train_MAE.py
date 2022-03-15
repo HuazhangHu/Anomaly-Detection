@@ -18,7 +18,7 @@ import timm
 import timm.optim.optim_factory as optim_factory
 
 from sklearn.model_selection import KFold
-from Masked_AE import MaskedAutoencoder, Network
+from Masked_AE import MaskedAutoencoder
 from dataloader import FeatData
 
 def train_looping(n_epochs, model, dataset, TTR=0.9, batch_size=4, lr=1e-4, weight_decay=0.05, valid=True, lastckpt=None, save=None, log_dir=None):
@@ -153,5 +153,5 @@ lr=1e-4
 lastckpt=None
 dataset = FeatData(train_path)
 
-model=Network()
-train_looping(EPOCHS, model, dataset=dataset, batch_size=batch_size, lr=lr, save='0310',log_dir='0310', lastckpt=lastckpt)
+model=MaskedAutoencoder()
+train_looping(EPOCHS, model, dataset=dataset, batch_size=batch_size, lr=lr, save='0314',log_dir='0314_mask_0.125', lastckpt=lastckpt)
