@@ -19,7 +19,7 @@ import timm.optim.optim_factory as optim_factory
 from Triple_MAE import MaskedAutoencoder
 from pre_dataloader import FeatData
 from utils.loss import l1_loss, psnr_error
-from utils.lr_sched import WarmUpLR
+from utils.lr_sched import WarmUpLR, adjust_learning_rate
 
 
 
@@ -63,13 +63,7 @@ def train_step1(n_epochs, TTR=0.9, batch_size=4, lr=1e-6, weight_decay=0.05, val
     ## ------ optimizer settings  -------
     param_groups = optim_factory.add_weight_decay(model , weight_decay=weight_decay)
     optimizer = torch.optim.AdamW(param_groups, lr=lr, betas=(0.9, 0.95))
-    
-    warmup_epoch = 5
-    iter_per_epoch = len(train_set)
-    warmup_scheduler = WarmUpLR(optimizer, iter_per_epoch * warmup_epoch)
 
-    CosineAnnealing_scheduler =torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, n_epochs - warmup_epoch)
-   
     for state in optimizer.state.values():
         for k, v in state.items():
             if isinstance(v, torch.Tensor):
@@ -83,10 +77,12 @@ def train_step1(n_epochs, TTR=0.9, batch_size=4, lr=1e-6, weight_decay=0.05, val
         Trainlosses=[]
         PSNR=[]
         Step1=True
+        data_iter_step=0
         for input in pbar:
             with autocast():
                 model.train()
                 optimizer.zero_grad()
+                adjust_learning_rate(optimizer, data_iter_step / len(trainloader) + epoch,lr,n_epochs,warmup_epochs=5)
                 anchor = input[:,0,:,:]
                 negative = input[:,1,:,:]
                 anchor = anchor.to(device)
@@ -101,11 +97,12 @@ def train_step1(n_epochs, TTR=0.9, batch_size=4, lr=1e-6, weight_decay=0.05, val
 
                 loss_value=loss.item()
                 Trainlosses.append(loss_value)
-                pbar.set_postfix({'Epoch': epoch,'loss_train': loss_value})
+                pbar.set_postfix({'Epoch': epoch,'loss_train': loss_value,'lr':optimizer.state_dict()['param_groups'][0]['lr']})
                 
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
+            data_iter_step+=1
 
         if  valid:
             Validlosses=[]
@@ -127,13 +124,8 @@ def train_step1(n_epochs, TTR=0.9, batch_size=4, lr=1e-6, weight_decay=0.05, val
 
                     loss_value=loss.item()
                     Validlosses.append(loss_value)
-                    pbar.set_postfix({'Epoch': epoch,'loss_valid': loss_value})
+                    pbar.set_postfix({'Epoch': epoch,'loss_valid': loss_value,'lr':optimizer.state_dict()['param_groups'][0]['lr']})
 
-        # scheduler.step()
-        if epoch<warmup_epoch:
-            warmup_scheduler.step()
-        else:
-            CosineAnnealing_scheduler.step()
 
         if log_dir is not None:
             os.makedirs(os.path.join('log', log_dir), exist_ok=True)
@@ -160,7 +152,7 @@ device_ids = [i for i in range(N_GPU)]
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 data_path='/storage/data/huhzh/ShanghaiTech/training/feature_videoswin_16'
 ckpt=None
-LR=8e-6
+LR=1e-5
 batch_size=64
 
 train_step1(100,lr=LR,batch_size=batch_size,lastckpt=ckpt,save='0316_step1',log_dir='0316_step1_warm_cos')
