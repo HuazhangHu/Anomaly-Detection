@@ -2,6 +2,7 @@
 
 import os
 from tkinter import S
+from tkinter.messagebox import NO
 import numpy as np
 from sympy import N
 from tqdm import tqdm
@@ -18,7 +19,7 @@ import timm.optim.optim_factory as optim_factory
 from Triple_MAE import MaskedAutoencoder
 from pre_dataloader import FeatData
 from utils.loss import l1_loss, psnr_error
-
+from utils.lr_sched import WarmUpLR
 
 
 
@@ -39,16 +40,9 @@ def train_step1(n_epochs, TTR=0.9, batch_size=4, lr=1e-6, weight_decay=0.05, val
     valid_set = torch.utils.data.Subset(dataset, range(int(TTR*len(dataset)), len(dataset)))
     trainloader = DataLoader(train_set, batch_size=batch_size, pin_memory=False, num_workers=8)
     validloader = DataLoader(valid_set, batch_size=batch_size, pin_memory=False, num_workers=8)
-
-    ## ------ optimizer settings  -------
-    param_groups = optim_factory.add_weight_decay(model , weight_decay=weight_decay)
-    optimizer = torch.optim.AdamW(param_groups, lr=lr, betas=(0.9, 0.95))
-
-    milestones = [i for i in range(0, n_epochs, 40)]
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=milestones, gamma=0.8)  # three step decay
+   
+    ## ------ load model ------------
     currEpoch = 0
-    
-    # # # load hyperparameters by pytorch
     if lastckpt is not None: 
         # print("loading checkpoint")
         checkpoint = torch.load(lastckpt)
@@ -66,6 +60,16 @@ def train_step1(n_epochs, TTR=0.9, batch_size=4, lr=1e-6, weight_decay=0.05, val
 
         del checkpoint
 
+    ## ------ optimizer settings  -------
+    param_groups = optim_factory.add_weight_decay(model , weight_decay=weight_decay)
+    optimizer = torch.optim.AdamW(param_groups, lr=lr, betas=(0.9, 0.95))
+    
+    warmup_epoch = 5
+    iter_per_epoch = len(train_set)
+    warmup_scheduler = WarmUpLR(optimizer, iter_per_epoch * warmup_epoch)
+
+    CosineAnnealing_scheduler =torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, n_epochs - warmup_epoch)
+   
     for state in optimizer.state.values():
         for k, v in state.items():
             if isinstance(v, torch.Tensor):
@@ -74,6 +78,7 @@ def train_step1(n_epochs, TTR=0.9, batch_size=4, lr=1e-6, weight_decay=0.05, val
     scaler = GradScaler()
 
     for epoch in tqdm(range(currEpoch, n_epochs + currEpoch)):
+
         pbar = tqdm(trainloader, total=len(trainloader))
         Trainlosses=[]
         PSNR=[]
@@ -124,7 +129,11 @@ def train_step1(n_epochs, TTR=0.9, batch_size=4, lr=1e-6, weight_decay=0.05, val
                     Validlosses.append(loss_value)
                     pbar.set_postfix({'Epoch': epoch,'loss_valid': loss_value})
 
-        scheduler.step()
+        # scheduler.step()
+        if epoch<warmup_epoch:
+            warmup_scheduler.step()
+        else:
+            CosineAnnealing_scheduler.step()
 
         if log_dir is not None:
             os.makedirs(os.path.join('log', log_dir), exist_ok=True)
@@ -154,4 +163,4 @@ ckpt=None
 LR=8e-6
 batch_size=64
 
-train_step1(100,lr=LR,batch_size=batch_size,lastckpt=ckpt,save='0315_step1',log_dir='0315_step1')
+train_step1(100,lr=LR,batch_size=batch_size,lastckpt=ckpt,save='0316_step1',log_dir='0316_step1_warm_cos')
