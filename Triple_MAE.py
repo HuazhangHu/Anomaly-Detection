@@ -1,4 +1,4 @@
-'''' refer to MAE-kaiming to built own masked-autoencoder model
+'''' 基于triple loss 方法的mae
 '''
 
 from functools import partial

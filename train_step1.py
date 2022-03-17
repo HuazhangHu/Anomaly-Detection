@@ -1,4 +1,4 @@
-''' train '''
+''' pre-train masked aotoencoder based on transformer'''
 
 import os
 from tkinter import S
