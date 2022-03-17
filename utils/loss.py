@@ -18,8 +18,9 @@ def log10(x):
 def psnr_error(pred_feature: torch.Tensor, target:torch.Tensor,mask):
     # input_feature: [batchsize, length, channel]
     # pred_feature: [batchsize, length, channel]
-    mses=((pred_feature - target)**2).mean(dim=-1)  # Size([4, 8]) 
-    masked_mse=(mses * mask).sum()/mask.sum() #
+    # return [b]
+    mses=((pred_feature - target)**2).mean(dim=-1)  # Size([b, 8]) 
+    masked_mse=(mses * mask).sum(dim=-1)/mask.sum(dim=-1) # [b,1]
     psnr=10 * log10(1 / masked_mse)
 
     return psnr
@@ -30,8 +31,3 @@ def Score(pred_feature: torch.Tensor, target:torch.Tensor, mask, psnr_set):
     score=(psnr_error(pred_feature,target,mask)-min_P)/(max_P-min_P)
 
     return score
-
-    
-
-
-    
