@@ -10,9 +10,7 @@ def read_npz(file):
     with np.load(file, allow_pickle=True) as data:
         print(file)
         frames = data['frames']  # numpy.ndarray
-        # frames=process_image(frames)
         frames=torch.FloatTensor(frames) 
-        # dtype(float64)
         return frames
 
 
@@ -25,13 +23,6 @@ def save_clip(clip,file_name,index):
         print('type error')
 
 
-# def process_image(frames):
-#     # 归一化
-#     for i in range(frames.shape[0]):
-#         image=frames[i]
-#         image = (image - np.min(image)) / (np.max(image) - np.min(image))
-#         frames[i]=image
-#     return frames
 
 def padding(frames):
     frames_num=frames.shape[0]
@@ -69,6 +60,6 @@ def video2clip():
         
 
 snip_len=16
-video_path='/storage/data/huhzh/ShanghaiTech/testing/videos'
-save_path='/storage/data/huhzh/ShanghaiTech/testing/clips_'+str(snip_len)
+video_path='/storage/data/huhzh/ShanghaiTech/training/videos_train_npz'
+save_path='/storage/data/huhzh/ShanghaiTech/training/clips_0317'
 video2clip()

@@ -21,13 +21,12 @@ def psnr_error(pred_feature: torch.Tensor, target:torch.Tensor,mask):
     # return [b]
     mses=((pred_feature - target)**2).mean(dim=-1)  # Size([b, 8]) 
     masked_mse=(mses * mask).sum(dim=-1)/mask.sum(dim=-1) # [b,1]
+    print('l2 loss: ',masked_mse.item())
     psnr=10 * log10(1 / masked_mse)
 
     return psnr
 
-def Score(pred_feature: torch.Tensor, target:torch.Tensor, mask, psnr_set):
-    min_P=min(psnr_set)
-    max_P=max(psnr_set)
+def Score(pred_feature: torch.Tensor, target:torch.Tensor, mask, min_P,max_P):
     score=(psnr_error(pred_feature,target,mask)-min_P)/(max_P-min_P)
 
     return score

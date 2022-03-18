@@ -38,6 +38,8 @@ def get_frames(file_path):
     with np.load(file_path, allow_pickle=True) as data:
         frames = data['frames']  # numpy.ndarray [f, 224, 224, 3]
         frames_length = frames.shape[0]
+        frames-=127.5
+        frames/=127.5
         #!!!!!!!!!! 加回来 TODO: 由于clip的时候已经归一化了一次，此时不需要归一化了
         frames = torch.FloatTensor(frames)
         frames = frames.permute(0, 3, 1, 2)  # tensor [f, 224, 224, 3]->[f, 3, 224, 224]
@@ -56,8 +58,8 @@ device_ids = [i for i in range(N_GPU)]
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 device = torch.device("cuda:" + str(device_ids[0]) if torch.cuda.is_available() else "cpu")
 
-train_path = '/storage/data/huhzh/ShanghaiTech/training/clips_16'
-save_path='/storage/data/huhzh/ShanghaiTech/training/feature_videoswin_16'
+train_path = '/storage/data/huhzh/ShanghaiTech/training/clips_0317'
+save_path='/storage/data/huhzh/ShanghaiTech/training/feature_0317'
 batch_size=4
 train_set = MyData(train_path)
 trainloader = DataLoader(train_set, batch_size=batch_size, pin_memory=False, shuffle=True, num_workers=8)
@@ -68,8 +70,10 @@ model = nn.DataParallel(model.to(device), device_ids=device_ids)
 
 for input,filenames in tqdm(trainloader, total=len(trainloader)):
     # print('input shape',input.shape) [3, f, 224, 224]
+    model.eval()
     input = input.to(device)
     features= model(input)
+
     # print('feature shape', features.shape)
     # print('filename ', filenames)
     features = torch.chunk(features, batch_size, dim=0)
