@@ -3,7 +3,7 @@ import torch
 from torch.optim.lr_scheduler import _LRScheduler
 import math
 
-def adjust_learning_rate(optimizer, epoch, lr, epochs, min_lr=0,warmup_epochs=5):
+def adjust_learning_rate(optimizer, epoch, lr, epochs, min_lr=1e-8,warmup_epochs=5):
     """Decay the learning rate with half-cycle cosine after warmup"""
     if epoch < warmup_epochs:
         lr = lr * epoch / warmup_epochs 
