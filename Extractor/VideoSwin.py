@@ -48,12 +48,18 @@ class VideoSwinTransformer(nn.Module):
 
         return backbone
 
-    def forward(self, input):
-        # input.shape [batch_size, channel, length, h, w]
-        batch_size, c, length, h, w = input.shape
-        x = self.backbone(input)
-        x=self.average_pooling(x)#  [batch_size, channel, length,1,1]
-        output=x.squeeze(-1).squeeze(-1) #  [batch_size, channel, length]
+    def forward(self, x):
+        # input.shape [batch_size, 3, 16, 224,224]
+        batch_size, c, length, h, w = x.shape
+        slices = torch.chunk(x, 8, dim=2)
+        featureSet=[]
+        for slice in slices:
+            feature=self.backbone(slice)  # ->[batch_size, 1024,1,7,7]
+            feature=self.average_pooling(feature)  #  [batch_size, channel, length,1,1]
+            feature=feature.squeeze(-1).squeeze(-1)  # ->[batch_size,1024,1]
+            feature=feature.transpose(1,2)  # ->[batch_size,1,1024]
+            featureSet.append(feature)
+        output=torch.cat(featureSet,dim=1)  # ->[batch_size,8,1024]
 
         return output
     
@@ -63,7 +69,7 @@ def check_file_exist(filename, msg_tmpl='file "{}" does not exist'):
 
 # model=VideoSwinTransformer()
 # # print(model)
-# x=torch.rand(1,3,64,224,224)
+# x=torch.rand(1,3,16,224,224)
 # x=model(x) # [1,1024,32,7,7]  temporal 64->32  channel 1024
 # print("videoswin output: ", x.shape)
 

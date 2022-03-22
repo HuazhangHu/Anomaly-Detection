@@ -58,21 +58,21 @@ device_ids = [i for i in range(N_GPU)]
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 device = torch.device("cuda:" + str(device_ids[0]) if torch.cuda.is_available() else "cpu")
 
-train_path = '/storage/data/huhzh/ShanghaiTech/training/clips_0317'
-save_path='/storage/data/huhzh/ShanghaiTech/training/feature_0317'
+train_path = '/storage/data/huhzh/ShanghaiTech/testing/clips_0317'
+save_path='/storage/data/huhzh/ShanghaiTech/testing/feature_0318'
 batch_size=4
 train_set = MyData(train_path)
-trainloader = DataLoader(train_set, batch_size=batch_size, pin_memory=False, shuffle=True, num_workers=8)
+trainloader = DataLoader(train_set, batch_size=batch_size, pin_memory=False, shuffle=False, num_workers=8)
 
 model=VideoSwinTransformer()
 model = nn.DataParallel(model.to(device), device_ids=device_ids)
 
 
 for input,filenames in tqdm(trainloader, total=len(trainloader)):
-    # print('input shape',input.shape) [3, f, 224, 224]
+    # print('input shape',input.shape) [b,3, f, 224, 224]
     model.eval()
     input = input.to(device)
-    features= model(input)
+    features= model(input)#[batch_size, 8, 1024]
 
     # print('feature shape', features.shape)
     # print('filename ', filenames)
