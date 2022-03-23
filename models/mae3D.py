@@ -50,34 +50,6 @@ class MaskedAutoencoderViT(nn.Module):
 
 
 
-    def patchify(self, imgs):
-        """
-        imgs: (N, 3, H, W)
-        x: (N, L, patch_size**2 *3)
-        """
-        p = self.patch_embed.patch_size[0]
-        assert imgs.shape[2] == imgs.shape[3] and imgs.shape[2] % p == 0
-
-        h = w = imgs.shape[2] // p
-        x = imgs.reshape(shape=(imgs.shape[0], 3, h, p, w, p))
-        x = torch.einsum('nchpwq->nhwpqc', x)
-        x = x.reshape(shape=(imgs.shape[0], h * w, p**2 * 3))
-        return x
-
-    def unpatchify(self, x):
-        """
-        x: (N, L, patch_size**2 *3)
-        imgs: (N, 3, H, W)
-        """
-        p = self.patch_embed.patch_size[0]
-        h = w = int(x.shape[1]**.5)
-        assert h * w == x.shape[1]
-        
-        x = x.reshape(shape=(x.shape[0], h, w, p, p, 3))
-        x = torch.einsum('nhwpqc->nchpwq', x)
-        imgs = x.reshape(shape=(x.shape[0], 3, h * p, h * p))
-        return imgs
-
     def random_masking(self, x, mask_ratio):
         """
         Perform per-sample random masking by per-sample shuffling.
@@ -112,28 +84,19 @@ class MaskedAutoencoderViT(nn.Module):
         embedding = self.patch_embed(x) # -> [B self.embed_dim Dd Ww Hh]
         pe=self.pos_encoding(embedding.permute(0,3,4,2,1))# [B self.embed_dim Dd Ww Hh]-> [B,Ww, Hh, Dd, embed_dim]
         position_embeding=pe.permute(0,4,3,1,2) #-> [B self.embed_dim Dd Ww Hh]
-
         x=embedding+position_embeding
         x=x.flatten(2).transpose(1,2) # [B, self.embed_dim, Dd*Wh*Ww ]-> [B, N, self.embed_dim]
-
         # masking: length -> length * mask_ratio
         x, mask, ids_restore = self.random_masking(x, mask_ratio)
-
-        # append cls token
-        cls_token = self.cls_token + self.pos_embed[:, :1, :]
-        cls_tokens = cls_token.expand(x.shape[0], -1, -1)
-        x = torch.cat((cls_tokens, x), dim=1)
 
         # apply Transformer blocks
         for blk in self.blocks:
             x = blk(x)
         x = self.norm(x)
-
         return x, mask, ids_restore
 
    
-
-    def forward(self, imgs, mask_ratio=0.75):
+    def forward(self, imgs, mask_ratio=0.5):
         latent, mask, ids_restore = self.forward_encoder(imgs, mask_ratio)
 
         return  mask
