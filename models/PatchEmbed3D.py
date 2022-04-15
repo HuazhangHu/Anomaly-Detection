@@ -10,7 +10,7 @@ class PatchEmbed3D(nn.Module):
         embed_dim (int): Number of linear projection output channels. Default: 96.
         norm_layer (nn.Module, optional): Normalization layer. Default: None
     """
-    def __init__(self, img_size=224, temp_dim=16, patch_size=(2,4,4), in_chans=3, embed_dim=96, norm_layer=None):
+    def __init__(self, img_size=224, temp_dim=16, patch_size=(2,16,16), in_chans=3, embed_dim=96, norm_layer=None):
         super().__init__()
         self.patch_size = patch_size
 
