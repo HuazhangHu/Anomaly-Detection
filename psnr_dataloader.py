@@ -21,8 +21,8 @@ class FeatData(Dataset):
     def __getitem__(self, index):
         file_name = self.scene[index]
         feat_file_path = os.path.join(self.feat_path,file_name)
-        feat = get_feat(feat_file_path)  # torch.Size([1024, 8])
-        feat = feat.transpose(0, 1)  # torch.Size([1024, 8]) -> [8, 1024]
+        feat = get_feat(feat_file_path)  # torch.Size([8, 1024])
+
 
         return feat 
 

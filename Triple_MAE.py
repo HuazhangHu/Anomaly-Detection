@@ -101,7 +101,7 @@ class MaskedAutoencoder(nn.Module):
 
         return x_masked, mask, ids_restore
 
-    def forward(self,x,mask_ratio=0.125):
+    def forward(self,x,mask_ratio=0.5):
         ''' 
         x : input feature [batch_size, length, dim]
         '''
@@ -116,7 +116,7 @@ class MaskedAutoencoder(nn.Module):
     def forward_encoder(self, x, mask_ratio):
         x=self.encoder_embed(x)
 
-        x=x+self.pos_embed(x)
+        x=self.pos_embed(x)
 
         # masking: length -> length * mask_ratio
         x, mask, ids_restore = self.random_masking(x, mask_ratio)

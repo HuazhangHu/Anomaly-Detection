@@ -35,16 +35,16 @@ def get_feat(file_path):
     return feat
     
 
-# train_path = '/public/home/huhzh/ShanghaiTech/training/feature_videoswin_16'
-# batch_size=4
-# dataset = FeatData(train_path)
-# train_set= torch.utils.data.Subset(dataset, range(0, int(0.9 * len(dataset))))
-# valid_set = torch.utils.data.Subset(dataset, range(int(0.9*len(dataset)), len(dataset)))
-# trainloader = DataLoader(train_set, batch_size=batch_size, pin_memory=False, shuffle=True, num_workers=8)
-# validloader = DataLoader(valid_set, batch_size=batch_size, pin_memory=False, shuffle=True, num_workers=8)
-# print(' train ',len(trainloader))
-# print(' valid ',len(validloader))
+train_path = '/public/home/huhzh/ShanghaiTech/training/feature_videoswin_16'
+batch_size=4
+dataset = FeatData(train_path)
+train_set= torch.utils.data.Subset(dataset, range(0, int(0.9 * len(dataset))))
+valid_set = torch.utils.data.Subset(dataset, range(int(0.9*len(dataset)), len(dataset)))
+trainloader = DataLoader(train_set, batch_size=batch_size, pin_memory=False, shuffle=True, num_workers=8)
+validloader = DataLoader(valid_set, batch_size=batch_size, pin_memory=False, shuffle=True, num_workers=8)
+print(' train ',len(trainloader))
+print(' valid ',len(validloader))
 
-# for input in tqdm(trainloader, total=len(trainloader)):
-#     print('input shape',input.shape) 
+for input in tqdm(trainloader, total=len(trainloader)):
+    print('input shape',input.shape) 
 

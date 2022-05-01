@@ -35,8 +35,7 @@ class FeatData(Dataset):
     def __getfeat(self,index):
         file_name = self.feat_list[index]
         feat_file_path = os.path.join(self.feat_path,file_name)
-        feat = load_feat(feat_file_path)  # torch.Size([1024, 8])
-        feat = feat.transpose(0, 1)  # torch.Size([1024, 8]) -> [8, 1024]
+        feat = load_feat(feat_file_path)  # torch.Size([8,1024])
         return feat
 
     

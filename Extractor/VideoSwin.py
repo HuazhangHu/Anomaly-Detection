@@ -18,8 +18,8 @@ class VideoSwinTransformer(nn.Module):
         super(VideoSwinTransformer, self).__init__()
         
          # video-swin model base on kinetics400 pre-trained on ImageNet22K
-        self.config= '../configs/recognition/swin/swin_base_patch244_window877_kinetics400_22k.py' 
-        self.checkpoint = '../pre-trained/swin_base_patch244_window877_kinetics400_22k.pth'
+        self.config= './configs/recognition/swin/swin_tiny_patch244_window877_kinetics400_1k.py' 
+        self.checkpoint = './pre-trained/swin_tiny_patch244_window877_kinetics400_1k.pth'
         check_file_exist(self.checkpoint)
         check_file_exist(self.config)
         self.backbone = self.load_model()
@@ -51,13 +51,13 @@ class VideoSwinTransformer(nn.Module):
     def forward(self, x):
         # input.shape [batch_size, 3, 16, 224,224]
         batch_size, c, length, h, w = x.shape
-        slices = torch.chunk(x, 8, dim=2)
+        slices = torch.chunk(x, 4, dim=2)  # slice [b, 3, 4, 224,224]
         featureSet=[]
         for slice in slices:
-            feature=self.backbone(slice)  # ->[batch_size, 1024,1,7,7]
-            feature=self.average_pooling(feature)  #  [batch_size, channel, length,1,1]
-            feature=feature.squeeze(-1).squeeze(-1)  # ->[batch_size,1024,1]
-            feature=feature.transpose(1,2)  # ->[batch_size,1,1024]
+            feature=self.backbone(slice)  # ->[batch_size, 1024, 2 , 7,7]
+            feature=self.average_pooling(feature)  #  [batch_size, channel, 2, 1, 1]
+            feature=feature.squeeze(-1).squeeze(-1)  # ->[batch_size,1024,2]
+            feature=feature.transpose(1,2)  # ->[batch_size,2,1024]
             featureSet.append(feature)
         output=torch.cat(featureSet,dim=1)  # ->[batch_size,8,1024]
 

@@ -55,7 +55,7 @@ def video2clip():
         frames=read_npz(os.path.join(video_path,video))
         clips=get_clips(frames)
         for index,clip in enumerate(clips):
-            save_clip(clip, video, index)
+            save_clip(clip, video, index) # [frames,  224, 224,3]
         print(video+' saved!')
         
 

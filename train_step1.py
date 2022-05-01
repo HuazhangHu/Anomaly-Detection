@@ -16,14 +16,14 @@ from torch.cuda.amp import autocast, GradScaler
 import timm
 import timm.optim.optim_factory as optim_factory
 
-from Triple_MAE import MaskedAutoencoder
-from pre_dataloader import FeatData
+from models.MAE import MaskedAutoencoderViT
+from dataloader_raw import ClipData
 from utils.loss import l1_loss, psnr_error
 from utils.lr_sched import WarmUpLR, adjust_learning_rate
 
 
 
-def train_step1(n_epochs, TTR=0.9, batch_size=4, lr=1e-6, weight_decay=0.05, valid=True, lastckpt=None, save=None, log_dir=None):
+def train_step1(n_epochs, TTR=0.95, batch_size=4, lr=1e-6, weight_decay=0.05, valid=True, lastckpt=None, save=None, log_dir=None):
 
     # fix the seed for reproducibility
     seed = 0
@@ -31,11 +31,11 @@ def train_step1(n_epochs, TTR=0.9, batch_size=4, lr=1e-6, weight_decay=0.05, val
     np.random.seed(seed)
     ## ------ gpu environment seeting ------
     device = torch.device("cuda:" + str(device_ids[0]) if torch.cuda.is_available() else "cpu")
-    model=MaskedAutoencoder()
+    model=MaskedAutoencoderViT()
     model = nn.DataParallel(model.cuda(), device_ids=device_ids)
 
     ## ------ dataloader settings ------
-    dataset =FeatData(data_path)
+    dataset =ClipData(data_path)
     train_set = torch.utils.data.Subset(dataset, range(0, int(TTR * len(dataset))))
     valid_set = torch.utils.data.Subset(dataset, range(int(TTR*len(dataset)), len(dataset)))
     trainloader = DataLoader(train_set, batch_size=batch_size, pin_memory=False, num_workers=8)
@@ -79,6 +79,7 @@ def train_step1(n_epochs, TTR=0.9, batch_size=4, lr=1e-6, weight_decay=0.05, val
         Step1=True
         data_iter_step=0
         for input in pbar:
+            #[batch,2, 8, 1024]
             with autocast():
                 model.train()
                 optimizer.zero_grad()
@@ -138,7 +139,7 @@ def train_step1(n_epochs, TTR=0.9, batch_size=4, lr=1e-6, weight_decay=0.05, val
             savepath='/storage/data/huhzh/Anomaly-Detection/checkpoint/'
             if not os.path.exists(savepath+save):
                 os.makedirs(savepath+save)
-            if (epoch < 10 and epoch % 5 == 0) or (epoch > 10 and epoch % 3 == 0):
+            if (epoch < 10 and epoch % 5 == 0) or (epoch > 10 and epoch % 5 == 0):
                     checkpoint = {
                         'epoch': epoch,
                         'state_dict': model.state_dict(),
@@ -150,9 +151,9 @@ def train_step1(n_epochs, TTR=0.9, batch_size=4, lr=1e-6, weight_decay=0.05, val
 N_GPU =4
 device_ids = [i for i in range(N_GPU)]
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
-data_path='/storage/data/huhzh/ShanghaiTech/training/feature_videoswin_16'
+data_path='/storage/data/huhzh/ShanghaiTech/training/clips_0317'
 ckpt=None
-LR=1e-5
+LR=1e-6
 batch_size=64
 
-train_step1(100,lr=LR,batch_size=batch_size,lastckpt=ckpt,save='0316_step1',log_dir='0316_step1_warm_cos')
+train_step1(300,lr=LR,batch_size=batch_size,lastckpt=ckpt,save='0318_step1_mask0.5',log_dir='0318_mask0.5')

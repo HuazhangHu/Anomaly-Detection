@@ -5,18 +5,18 @@ import torch
 import torch.nn as nn
 
 from timm.models.vision_transformer import  Block
-from PatchEmbed3D import PatchEmbed3D
+from models.PatchEmbed3D import PatchEmbed3D
 
-from pos_embed import PositionalEncodingPermute3D,PositionalEncoding3D
+from models.pos_embed import PositionalEncodingPermute3D,PositionalEncoding3D
 
 
 class MaskedAutoencoderViT(nn.Module):
     """ Masked Autoencoder with VisionTransformer backbone
     """
     def __init__(self, img_size=224, temp_dim=16,patch_size=(2,16,16), in_chans=3,
-                 embed_dim=768, depth=6, num_heads=16,
+                 embed_dim=768, depth=2, num_heads=16,
                  decoder_embed_dim=384, decoder_depth=2, decoder_num_heads=16,
-                 mlp_ratio=4.,dim_proj=1536, norm_layer=nn.LayerNorm, norm_pix_loss=False):
+                 mlp_ratio=4.,dim_proj=3*2*16*16, norm_layer=nn.LayerNorm, norm_pix_loss=False):
         super().__init__()
 
         # --------------------------------------------------------------------------
@@ -103,10 +103,11 @@ class MaskedAutoencoderViT(nn.Module):
         # B,C,T,W,H=x.shape
         patch_embedding = self.patch_embed(x) # -> [B self.embed_dim Dd Ww Hh]
         self.encoder_pos_embed,self.decoder_pos_embed=self.pos_encoding(patch_embedding,self.decoder_embed_dim)
-        x=patch_embedding.flatten(2).transpose(1,2) # ->[B,N,D]
+        x=patch_embedding.flatten(2).transpose(1,2) # ->[B,L,D] N=Dd*Ww *Hh
         x=x +self.encoder_pos_embed
         # masking: length -> length * mask_ratio
         x, mask, ids_restore = self.random_masking(x, mask_ratio)
+        # ids_restore 缩略图的mask
 
         # apply Transformer blocks
         for blk in self.blocks:
@@ -125,7 +126,8 @@ class MaskedAutoencoderViT(nn.Module):
         x_ = torch.gather(x_, dim=1, index=ids_restore.unsqueeze(-1).repeat(1, 1, x.shape[2]))  # unshuffle
 
         # add pos embed
-        x = x_ + self.decoder_pos_embed
+
+        x = x_ + self.decoder_pos_embed.to(x_.device)
 
         # apply Transformer blocks
         for blk in self.decoder_blocks:
@@ -138,11 +140,10 @@ class MaskedAutoencoderViT(nn.Module):
         return x
 
     def patchify(self, imgs):
-        """
-        imgs: (B, 3,16, H, W)
+        """将视频切成Tube
+        imgs: (B, 3,16, 224, 224)
         x: (B, L, t*patch_size**2 *3)
         """
-        print(imgs.shape)
         p = self.patch_embed.patch_size[1]
         t = self.patch_embed.patch_size[0]
         assert imgs.shape[3] == imgs.shape[4] and imgs.shape[3] % p == 0
@@ -150,8 +151,9 @@ class MaskedAutoencoderViT(nn.Module):
         h = w = imgs.shape[3] // p
         n = imgs.shape[2] // t
         x = imgs.reshape(shape=(imgs.shape[0], 3, n, t, h, p, w, p))
-        x = torch.einsum('bcnthpwq->bnhwpqtc', x)
+        x = torch.einsum('bcnthpwq->bnhwpqtc', x) # 变换位置
         x = x.reshape(shape=(imgs.shape[0], h * w * n , t * p**2 * 3))
+        # print('patch size: ',x.shape)  # [B, 8*14*14, 2*16*16*3]
         return x
 
     def forward_loss(self, imgs, pred, mask):
@@ -160,28 +162,28 @@ class MaskedAutoencoderViT(nn.Module):
         pred: [B, L, p*p*3]
         mask: [B, N], 0 is keep, 1 is remove, 
         """
-        target = self.patchify(imgs)
+        target = self.patchify(imgs)  # [B, 8*14*14, 2*16*16*3]
+
         if self.norm_pix_loss:
             mean = target.mean(dim=-1, keepdim=True)
             var = target.var(dim=-1, keepdim=True)
             target = (target - mean) / (var + 1.e-6)**.5
 
         loss = (pred - target) ** 2
-        loss = loss.mean(dim=-1)  # [N, L], mean loss per patch
+        loss = loss.mean(dim=-1)  # [B, L], MSE loss per patch
 
         loss = (loss * mask).sum() / mask.sum()  # mean loss on removed patches
         return loss
          
-    def forward(self, imgs, mask_ratio=0.5):
+    def forward(self, imgs, mask_ratio=0.75):
         latent, mask, ids_restore = self.forward_encoder(imgs, mask_ratio)
-        pred = self.forward_decoder(latent, ids_restore)  # [N, L, 1536]
+        # print('mask token:',ids_restore)
+        pred = self.forward_decoder(latent, ids_restore)  # [B, L=8*14*14, 1536=3*2*16*16]
         loss = self.forward_loss(imgs, pred, mask)
+        # print('loss: ',loss)
         return  loss, pred, mask
 
 
-model=MaskedAutoencoderViT()
-x=torch.rand(1,3,16,224,224)
-loss, pred, mask=model(x)
-print(loss.shape)
-print(pred.shape)
-print(mask.shape)
+# model=MaskedAutoencoderViT()
+# x=torch.rand(1,3,16,224,224)
+# loss, pred, mask=model(x)
