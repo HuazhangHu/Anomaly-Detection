@@ -34,8 +34,8 @@ def get_data(file_path):
     with np.load(file_path, allow_pickle=True) as data:
         frames = data['frames']  # numpy.ndarray [f, 224, 224, 3]
         frames_length = frames.shape[0]
-        frames-=127.5
-        frames/=127.5
+        # frames-=127.5
+        # frames/=127.5
 
     return frames
 
