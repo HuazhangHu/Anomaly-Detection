@@ -35,7 +35,7 @@ def train_looping(n_epochs, model, dataset, TTR=0.95, batch_size=4, lr=1e-4, val
     ## ------ gpu environment seeting ------\
     device = torch.device("cuda:" + str(device_ids[0]) if torch.cuda.is_available() else "cpu")
     model = nn.DataParallel(model.to(device), device_ids=device_ids)
-
+    torch.cuda.empty_cache()
     ## ------ dataloader settings ------
     train_set= torch.utils.data.Subset(dataset, range(0, int(TTR * len(dataset))))
     valid_set = torch.utils.data.Subset(dataset, range(int(TTR*len(dataset)), len(dataset)))
@@ -136,7 +136,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 
 train_path = '/storage/data/huhzh/ShanghaiTech/training/clips_0317'
 EPOCHS=200
-batch_size=4
+batch_size=8
 lr=1e-4
 lastckpt=None
 dataset = ClipData(train_path)
